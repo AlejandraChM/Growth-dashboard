@@ -28,10 +28,10 @@ export async function refreshCache() {
     throw new Error('Token inválido o sin permisos.');
   }
   const me = await meRes.json();
-  const userUri = me.resource.uri;
+  const organizationUri = me.resource.current_organization;
 
   const params = new URLSearchParams({
-    user: userUri,
+    organization: organizationUri,
     count: '100',
     sort: 'start_time:desc'
   });
