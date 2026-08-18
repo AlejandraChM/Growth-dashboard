@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Calendly</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f5f4; margin:0; padding:24px; color:#222; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { color:#666; font-size:13px; margin-bottom:20px; }
+  .setup { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:16px; margin-bottom:20px; }
+  .setup label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
+  .row { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:180px; }
+  input[type=date], input[type=text] { width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; box-sizing:border-box; }
+  button { background:#1a1a1a; color:#fff; border:none; padding:9px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-top:12px; }
+  button:hover { background:#333; }
+  button:disabled { background:#999; cursor:not-allowed; }
+  .error { color:#b00020; font-size:13px; margin-top:8px; }
+  .stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:12px; margin-bottom:20px; }
+  .stat { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:14px; }
+  .stat .num { font-size:22px; font-weight:600; }
+  .stat .label { font-size:12px; color:#666; margin-top:2px; }
+  .filters { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .filters select, .filters input[type=text] { padding:7px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; width:auto; }
+  table { width:100%; border-collapse: collapse; background:#fff; border-radius:10px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 12px; font-size:13px; border-bottom:1px solid #eee; }
+  th { background:#fafaf9; font-weight:600; color:#444; }
+  tr:hover td { background:#fafafa; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .badge.active { background:#e3f5e6; color:#1a7d33; }
+  .badge.canceled { background:#fdeaea; color:#b00020; }
+  .loading { color:#666; font-size:13px; }
+  .hidden { display:none; }
+  .email-lookup { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:16px; margin-bottom:20px; }
+  .email-lookup label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
+  .lookup-hit { border:1px solid #d8ecdd; background:#f3faf4; border-radius:8px; padding:10px 12px; margin-top:12px; margin-bottom:8px; font-size:13px; }
+  .lookup-hit .name { font-weight:600; }
+  .lookup-empty { color:#888; font-size:13px; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Dashboard de reuniones — Calendly</h1>
+  <div class="sub">Consulta First Interview, Onboarding Call y demás tipos de evento programados</div>
+
+  <div class="setup">
+    <div class="row">
+      <div>
+        <label>Desde</label>
+        <input type="date" id="minDate" />
+      </div>
+      <div>
+        <label>Hasta</label>
+        <input type="date" id="maxDate" />
+      </div>
+    </div>
+    <button id="loadBtn">Cargar reuniones</button>
+    <div class="error hidden" id="errBox"></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="stats" id="stats"></div>
+
+    <div class="email-lookup">
+      <label>Buscar por correo</label>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="emailLookup" placeholder="nombre@correo.com" style="flex:1;" />
+        <button id="lookupBtn" style="margin-top:0;">Buscar</button>
+      </div>
+      <div id="lookupResult"></div>
+    </div>
+
+    <div class="filters">
+      <select id="typeFilter"><option value="">Todos los tipos</option></select>
+      <select id="statusFilter">
+        <option value="">Todos los estados</option>
+        <option value="active">Activas</option>
+        <option value="canceled">Canceladas</option>
+      </select>
+      <input type="text" id="searchBox" placeholder="Buscar por nombre o email..." />
+    </div>
+    <table>
+      <thead>
+        <tr><th>Tipo de evento</th><th>Invitado</th><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let allEvents = [];
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-ES', { year:'numeric', month:'short', day:'numeric' });
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+}
+
+async function fetchAll(minDate, maxDate) {
+  const params = new URLSearchParams();
+  if (minDate) params.set('minDate', minDate);
+  if (maxDate) params.set('maxDate', maxDate);
+  const res = await fetch('/api/events?' + params.toString());
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al cargar reuniones.');
+  return data.events;
+}
+
+function render() {
+  const typeFilter = document.getElementById('typeFilter').value;
+  const statusFilter = document.getElementById('statusFilter').value;
+  const search = document.getElementById('searchBox').value.toLowerCase();
+
+  let filtered = allEvents.filter(e => {
+    if (typeFilter && e.type !== typeFilter) return false;
+    if (statusFilter && e.status !== statusFilter) return false;
+    if (search && !(e.invitee.toLowerCase().includes(search) || e.email.toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  filtered.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${e.type}</td>
+      <td>${e.invitee}${e.email ? '<br><span style="color:#888;font-size:11px">'+e.email+'</span>' : ''}</td>
+      <td>${fmtDate(e.start)}</td>
+      <td>${fmtTime(e.start)}</td>
+      <td><span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const stats = document.getElementById('stats');
+  const total = allEvents.length;
+  const active = allEvents.filter(e => e.status === 'active').length;
+  const byType = {};
+  allEvents.forEach(e => { byType[e.type] = (byType[e.type]||0)+1; });
+  const topTypes = Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
+  stats.innerHTML = `
+    <div class="stat"><div class="num">${total}</div><div class="label">Total reuniones</div></div>
+    <div class="stat"><div class="num">${active}</div><div class="label">Activas</div></div>
+    ${topTypes.map(([name,count]) => `<div class="stat"><div class="num">${count}</div><div class="label">${name}</div></div>`).join('')}
+  `;
+}
+
+function runEmailLookup() {
+  const query = document.getElementById('emailLookup').value.trim().toLowerCase();
+  const resultBox = document.getElementById('lookupResult');
+  resultBox.innerHTML = '';
+  if (!query) return;
+
+  const matches = allEvents.filter(e => e.email.toLowerCase() === query || e.email.toLowerCase().includes(query));
+  if (matches.length === 0) {
+    resultBox.innerHTML = '<div class="lookup-empty">No se encontraron reuniones para ese correo.</div>';
+    return;
+  }
+  matches.sort((a,b) => new Date(b.start) - new Date(a.start));
+  resultBox.innerHTML = matches.map(e => `
+    <div class="lookup-hit">
+      <span class="name">${e.invitee}</span> — ${e.type}<br>
+      ${fmtDate(e.start)} · ${fmtTime(e.start)} · <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('loadBtn').addEventListener('click', async () => {
+  const minDate = document.getElementById('minDate').value;
+  const maxDate = document.getElementById('maxDate').value;
+  const errBox = document.getElementById('errBox');
+  const loadBtn = document.getElementById('loadBtn');
+  errBox.classList.add('hidden');
+  loadBtn.disabled = true;
+  loadBtn.textContent = 'Cargando...';
+
+  try {
+    allEvents = await fetchAll(minDate, maxDate);
+    const typeFilter = document.getElementById('typeFilter');
+    typeFilter.innerHTML = '<option value="">Todos los tipos</option>';
+    const types = [...new Set(allEvents.map(e => e.type))];
+    types.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      typeFilter.appendChild(opt);
+    });
+    document.getElementById('results').classList.remove('hidden');
+    render();
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.classList.remove('hidden');
+  } finally {
+    loadBtn.disabled = false;
+    loadBtn.textContent = 'Cargar reuniones';
+  }
+});
+
+document.getElementById('lookupBtn').addEventListener('click', runEmailLookup);
+document.getElementById('emailLookup').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') runEmailLookup();
+});
+document.getElementById('typeFilter').addEventListener('change', render);
+document.getElementById('statusFilter').addEventListener('change', render);
+document.getElementById('searchBox').addEventListener('input', render);
+</script>
+</body>
+</html>
