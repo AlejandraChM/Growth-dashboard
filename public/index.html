@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Buscador de reuniones — Calendly</title>
+<title>Meeting Lookup — Calendly</title>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f5f4; margin:0; padding:24px; color:#222; }
   .container { max-width: 780px; margin: 0 auto; }
@@ -37,17 +37,17 @@
 </head>
 <body>
 <div class="container">
-  <h1>Buscador de reuniones — Calendly</h1>
-  <div class="sub">Ingresa el correo de un contribuidor para ver todas sus sesiones (First Interview, Onboarding Call, etc.) con el detalle completo</div>
+  <h1>Meeting Lookup — Calendly</h1>
+  <div class="sub">Enter a contributor's email to see all their sessions (First Interview, Onboarding Call, etc.) with full details</div>
 
   <div class="search-box">
-    <label>Correo del contribuidor</label>
+    <label>Contributor email</label>
     <div class="search-row">
-      <input type="text" id="emailInput" placeholder="nombre@correo.com" />
-      <button id="searchBtn">Buscar</button>
+      <input type="text" id="emailInput" placeholder="name@example.com" />
+      <button id="searchBtn">Search</button>
     </div>
     <div class="error hidden" id="errBox"></div>
-    <div class="loading hidden" id="loadingBox">Buscando reuniones...</div>
+    <div class="loading hidden" id="loadingBox">Searching meetings...</div>
   </div>
 
   <div id="results"></div>
@@ -58,11 +58,11 @@ let cachedEvents = null;
 
 function fmtDate(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString('es-ES', { year:'numeric', month:'long', day:'numeric' });
+  return d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 }
 function fmtTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+  return d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
 }
 function fmtDuration(start, end) {
   if (!end) return '—';
@@ -73,7 +73,7 @@ function fmtDuration(start, end) {
 async function loadAllEvents() {
   const res = await fetch('/api/events');
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error al cargar reuniones.');
+  if (!res.ok) throw new Error(data.error || 'Error loading meetings.');
   return data.events;
 }
 
@@ -91,20 +91,20 @@ function renderSessionCard(e) {
     <div class="session-card">
       <div class="top">
         <div class="type">${e.type}</div>
-        <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span>
+        <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Active' : 'Canceled'}</span>
       </div>
       <div class="detail-grid">
-        <div class="k">Invitado</div><div class="v">${e.invitee}</div>
-        <div class="k">Correo</div><div class="v">${e.email || '—'}</div>
-        <div class="k">Entrevistador(a)</div><div class="v">${e.hosts && e.hosts.length > 0 ? e.hosts.join(', ') : '—'}</div>
-        <div class="k">Fecha</div><div class="v">${fmtDate(e.start)}</div>
-        <div class="k">Hora</div><div class="v">${fmtTime(e.start)} (${e.timezone || 'zona no especificada'})</div>
-        <div class="k">Duración</div><div class="v">${fmtDuration(e.start, e.end)}</div>
-        <div class="k">Ubicación</div><div class="v">${e.location || '—'}</div>
-        ${e.textReminderNumber ? `<div class="k">Teléfono</div><div class="v">${e.textReminderNumber}</div>` : ''}
-        ${e.rescheduled ? `<div class="k">Reagendada</div><div class="v">Sí</div>` : ''}
-        ${e.status !== 'active' && e.cancelReason ? `<div class="k">Motivo cancelación</div><div class="v">${e.cancelReason}</div>` : ''}
-        <div class="k">Agendada el</div><div class="v">${fmtDate(e.createdAt)}</div>
+        <div class="k">Invitee</div><div class="v">${e.invitee}</div>
+        <div class="k">Email</div><div class="v">${e.email || '—'}</div>
+        <div class="k">Interviewer</div><div class="v">${e.hosts && e.hosts.length > 0 ? e.hosts.join(', ') : '—'}</div>
+        <div class="k">Date</div><div class="v">${fmtDate(e.start)}</div>
+        <div class="k">Time</div><div class="v">${fmtTime(e.start)} (${e.timezone || 'timezone not specified'})</div>
+        <div class="k">Duration</div><div class="v">${fmtDuration(e.start, e.end)}</div>
+        <div class="k">Location</div><div class="v">${e.location || '—'}</div>
+        ${e.textReminderNumber ? `<div class="k">Phone</div><div class="v">${e.textReminderNumber}</div>` : ''}
+        ${e.rescheduled ? `<div class="k">Rescheduled</div><div class="v">Yes</div>` : ''}
+        ${e.status !== 'active' && e.cancelReason ? `<div class="k">Cancel reason</div><div class="v">${e.cancelReason}</div>` : ''}
+        <div class="k">Booked on</div><div class="v">${fmtDate(e.createdAt)}</div>
       </div>
       ${qaHtml}
     </div>
@@ -122,7 +122,7 @@ async function runSearch() {
   results.innerHTML = '';
 
   if (!email) {
-    errBox.textContent = 'Ingresa un correo para buscar.';
+    errBox.textContent = 'Enter an email to search.';
     errBox.classList.remove('hidden');
     return;
   }
@@ -137,11 +137,11 @@ async function runSearch() {
     const matches = cachedEvents.filter(e => e.email.toLowerCase() === email || e.email.toLowerCase().includes(email));
 
     if (matches.length === 0) {
-      results.innerHTML = '<div class="empty">No se encontraron reuniones para ese correo.</div>';
+      results.innerHTML = '<div class="empty">No meetings found for that email.</div>';
     } else {
       matches.sort((a, b) => new Date(b.start) - new Date(a.start));
       results.innerHTML = `
-        <div class="summary">${matches.length} sesión${matches.length > 1 ? 'es' : ''} encontrada${matches.length > 1 ? 's' : ''} para <strong>${email}</strong></div>
+        <div class="summary">${matches.length} session${matches.length > 1 ? 's' : ''} found for <strong>${email}</strong></div>
         ${matches.map(renderSessionCard).join('')}
       `;
     }
