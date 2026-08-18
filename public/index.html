@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard Calendly</title>
+<title>Calendly Dashboard</title>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f5f4; margin:0; padding:24px; color:#222; }
   .container { max-width: 1000px; margin: 0 auto; }
@@ -41,21 +41,21 @@
 </head>
 <body>
 <div class="container">
-  <h1>Dashboard de reuniones — Calendly</h1>
-  <div class="sub">Consulta First Interview, Onboarding Call y demás tipos de evento programados</div>
+  <h1>Calendly meetings dashboard</h1>
+  <div class="sub">Look up First Interview, Onboarding Call, and every other scheduled event type</div>
 
   <div class="setup">
     <div class="row">
       <div>
-        <label>Desde</label>
+        <label>From</label>
         <input type="date" id="minDate" />
       </div>
       <div>
-        <label>Hasta</label>
+        <label>To</label>
         <input type="date" id="maxDate" />
       </div>
     </div>
-    <button id="loadBtn">Cargar reuniones</button>
+    <button id="loadBtn">Load meetings</button>
     <div class="error hidden" id="errBox"></div>
   </div>
 
@@ -63,26 +63,26 @@
     <div class="stats" id="stats"></div>
 
     <div class="email-lookup">
-      <label>Buscar por correo</label>
+      <label>Search by email</label>
       <div style="display:flex; gap:8px;">
-        <input type="text" id="emailLookup" placeholder="nombre@correo.com" style="flex:1;" />
-        <button id="lookupBtn" style="margin-top:0;">Buscar</button>
+        <input type="text" id="emailLookup" placeholder="name@company.com" style="flex:1;" />
+        <button id="lookupBtn" style="margin-top:0;">Search</button>
       </div>
       <div id="lookupResult"></div>
     </div>
 
     <div class="filters">
-      <select id="typeFilter"><option value="">Todos los tipos</option></select>
+      <select id="typeFilter"><option value="">All event types</option></select>
       <select id="statusFilter">
-        <option value="">Todos los estados</option>
-        <option value="active">Activas</option>
-        <option value="canceled">Canceladas</option>
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="canceled">Canceled</option>
       </select>
-      <input type="text" id="searchBox" placeholder="Buscar por nombre o email..." />
+      <input type="text" id="searchBox" placeholder="Search by name or email..." />
     </div>
     <table>
       <thead>
-        <tr><th>Tipo de evento</th><th>Invitado</th><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
+        <tr><th>Event type</th><th>Invitee</th><th>Date</th><th>Time</th><th>Status</th></tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -94,11 +94,11 @@ let allEvents = [];
 
 function fmtDate(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString('es-ES', { year:'numeric', month:'short', day:'numeric' });
+  return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
 }
 function fmtTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+  return d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
 }
 
 async function fetchAll(minDate, maxDate) {
@@ -107,7 +107,7 @@ async function fetchAll(minDate, maxDate) {
   if (maxDate) params.set('maxDate', maxDate);
   const res = await fetch('/api/events?' + params.toString());
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error al cargar reuniones.');
+  if (!res.ok) throw new Error(data.error || 'Error loading meetings.');
   return data.events;
 }
 
@@ -132,7 +132,7 @@ function render() {
       <td>${e.invitee}${e.email ? '<br><span style="color:#888;font-size:11px">'+e.email+'</span>' : ''}</td>
       <td>${fmtDate(e.start)}</td>
       <td>${fmtTime(e.start)}</td>
-      <td><span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span></td>
+      <td><span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Active' : 'Canceled'}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -145,8 +145,8 @@ function render() {
   const topTypes = Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,3);
 
   stats.innerHTML = `
-    <div class="stat"><div class="num">${total}</div><div class="label">Total reuniones</div></div>
-    <div class="stat"><div class="num">${active}</div><div class="label">Activas</div></div>
+    <div class="stat"><div class="num">${total}</div><div class="label">Total meetings</div></div>
+    <div class="stat"><div class="num">${active}</div><div class="label">Active</div></div>
     ${topTypes.map(([name,count]) => `<div class="stat"><div class="num">${count}</div><div class="label">${name}</div></div>`).join('')}
   `;
 }
@@ -159,14 +159,14 @@ function runEmailLookup() {
 
   const matches = allEvents.filter(e => e.email.toLowerCase() === query || e.email.toLowerCase().includes(query));
   if (matches.length === 0) {
-    resultBox.innerHTML = '<div class="lookup-empty">No se encontraron reuniones para ese correo.</div>';
+    resultBox.innerHTML = '<div class="lookup-empty">No meetings found for that email.</div>';
     return;
   }
   matches.sort((a,b) => new Date(b.start) - new Date(a.start));
   resultBox.innerHTML = matches.map(e => `
     <div class="lookup-hit">
       <span class="name">${e.invitee}</span> — ${e.type}<br>
-      ${fmtDate(e.start)} · ${fmtTime(e.start)} · <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span>
+      ${fmtDate(e.start)} · ${fmtTime(e.start)} · <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Active' : 'Canceled'}</span>
     </div>
   `).join('');
 }
@@ -178,12 +178,12 @@ document.getElementById('loadBtn').addEventListener('click', async () => {
   const loadBtn = document.getElementById('loadBtn');
   errBox.classList.add('hidden');
   loadBtn.disabled = true;
-  loadBtn.textContent = 'Cargando...';
+  loadBtn.textContent = 'Loading...';
 
   try {
     allEvents = await fetchAll(minDate, maxDate);
     const typeFilter = document.getElementById('typeFilter');
-    typeFilter.innerHTML = '<option value="">Todos los tipos</option>';
+    typeFilter.innerHTML = '<option value="">All event types</option>';
     const types = [...new Set(allEvents.map(e => e.type))];
     types.forEach(t => {
       const opt = document.createElement('option');
@@ -197,7 +197,7 @@ document.getElementById('loadBtn').addEventListener('click', async () => {
     errBox.classList.remove('hidden');
   } finally {
     loadBtn.disabled = false;
-    loadBtn.textContent = 'Cargar reuniones';
+    loadBtn.textContent = 'Load meetings';
   }
 });
 
