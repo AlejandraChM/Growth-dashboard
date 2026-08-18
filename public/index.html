@@ -1,213 +1,163 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Calendly Dashboard</title>
+<title>Buscador de reuniones — Calendly</title>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f5f4; margin:0; padding:24px; color:#222; }
-  .container { max-width: 1000px; margin: 0 auto; }
+  .container { max-width: 780px; margin: 0 auto; }
   h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .sub { color:#666; font-size:13px; margin-bottom:20px; }
-  .setup { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:16px; margin-bottom:20px; }
-  .setup label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
-  .row { display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; }
-  .row > div { flex:1; min-width:180px; }
-  input[type=date], input[type=text] { width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; box-sizing:border-box; }
-  button { background:#1a1a1a; color:#fff; border:none; padding:9px 16px; border-radius:6px; font-size:13px; cursor:pointer; margin-top:12px; }
+  .search-box { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:18px; margin-bottom:20px; }
+  .search-box label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
+  .search-row { display:flex; gap:8px; }
+  .search-row input { flex:1; padding:10px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; box-sizing:border-box; }
+  button { background:#1a1a1a; color:#fff; border:none; padding:10px 18px; border-radius:6px; font-size:13px; cursor:pointer; }
   button:hover { background:#333; }
   button:disabled { background:#999; cursor:not-allowed; }
-  .error { color:#b00020; font-size:13px; margin-top:8px; }
-  .stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:12px; margin-bottom:20px; }
-  .stat { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:14px; }
-  .stat .num { font-size:22px; font-weight:600; }
-  .stat .label { font-size:12px; color:#666; margin-top:2px; }
-  .filters { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-  .filters select, .filters input[type=text] { padding:7px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; width:auto; }
-  table { width:100%; border-collapse: collapse; background:#fff; border-radius:10px; overflow:hidden; }
-  th, td { text-align:left; padding:10px 12px; font-size:13px; border-bottom:1px solid #eee; }
-  th { background:#fafaf9; font-weight:600; color:#444; }
-  tr:hover td { background:#fafafa; }
-  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .error { color:#b00020; font-size:13px; margin-top:10px; }
+  .loading { color:#666; font-size:13px; margin-top:10px; }
+  .hidden { display:none; }
+  .summary { font-size:13px; color:#555; margin-bottom:14px; }
+  .session-card { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:18px; margin-bottom:14px; }
+  .session-card .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .session-card .type { font-size:15px; font-weight:600; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
   .badge.active { background:#e3f5e6; color:#1a7d33; }
   .badge.canceled { background:#fdeaea; color:#b00020; }
-  .loading { color:#666; font-size:13px; }
-  .hidden { display:none; }
-  .email-lookup { background:#fff; border:1px solid #e2e2e0; border-radius:10px; padding:16px; margin-bottom:20px; }
-  .email-lookup label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
-  .lookup-hit { border:1px solid #d8ecdd; background:#f3faf4; border-radius:8px; padding:10px 12px; margin-top:12px; margin-bottom:8px; font-size:13px; }
-  .lookup-hit .name { font-weight:600; }
-  .lookup-empty { color:#888; font-size:13px; margin-top:12px; }
+  .detail-grid { display:grid; grid-template-columns: 140px 1fr; gap:6px 12px; font-size:13px; margin-top:8px; }
+  .detail-grid .k { color:#888; }
+  .detail-grid .v { color:#222; }
+  .qa { margin-top:12px; padding-top:12px; border-top:1px solid #f0f0f0; }
+  .qa-item { font-size:13px; margin-bottom:8px; }
+  .qa-item .q { color:#888; }
+  .qa-item .a { color:#222; font-weight:500; }
+  .empty { color:#888; font-size:13px; text-align:center; padding:30px 0; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Calendly meetings dashboard</h1>
-  <div class="sub">Look up First Interview, Onboarding Call, and every other scheduled event type</div>
+  <h1>Buscador de reuniones — Calendly</h1>
+  <div class="sub">Ingresa el correo de un contribuidor para ver todas sus sesiones (First Interview, Onboarding Call, etc.) con el detalle completo</div>
 
-  <div class="setup">
-    <div class="row">
-      <div>
-        <label>From</label>
-        <input type="date" id="minDate" />
-      </div>
-      <div>
-        <label>To</label>
-        <input type="date" id="maxDate" />
-      </div>
+  <div class="search-box">
+    <label>Correo del contribuidor</label>
+    <div class="search-row">
+      <input type="text" id="emailInput" placeholder="nombre@correo.com" />
+      <button id="searchBtn">Buscar</button>
     </div>
-    <button id="loadBtn">Load meetings</button>
     <div class="error hidden" id="errBox"></div>
+    <div class="loading hidden" id="loadingBox">Buscando reuniones...</div>
   </div>
 
-  <div id="results" class="hidden">
-    <div class="stats" id="stats"></div>
-
-    <div class="email-lookup">
-      <label>Search by email</label>
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="emailLookup" placeholder="name@company.com" style="flex:1;" />
-        <button id="lookupBtn" style="margin-top:0;">Search</button>
-      </div>
-      <div id="lookupResult"></div>
-    </div>
-
-    <div class="filters">
-      <select id="typeFilter"><option value="">All event types</option></select>
-      <select id="statusFilter">
-        <option value="">All statuses</option>
-        <option value="active">Active</option>
-        <option value="canceled">Canceled</option>
-      </select>
-      <input type="text" id="searchBox" placeholder="Search by name or email..." />
-    </div>
-    <table>
-      <thead>
-        <tr><th>Event type</th><th>Invitee</th><th>Date</th><th>Time</th><th>Status</th></tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
+  <div id="results"></div>
 </div>
 
 <script>
-let allEvents = [];
+let cachedEvents = null;
 
 function fmtDate(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  return d.toLocaleDateString('es-ES', { year:'numeric', month:'long', day:'numeric' });
 }
 function fmtTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+  return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+}
+function fmtDuration(start, end) {
+  if (!end) return '—';
+  const mins = Math.round((new Date(end) - new Date(start)) / 60000);
+  return mins + ' min';
 }
 
-async function fetchAll(minDate, maxDate) {
-  const params = new URLSearchParams();
-  if (minDate) params.set('minDate', minDate);
-  if (maxDate) params.set('maxDate', maxDate);
-  const res = await fetch('/api/events?' + params.toString());
+async function loadAllEvents() {
+  const res = await fetch('/api/events');
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error loading meetings.');
+  if (!res.ok) throw new Error(data.error || 'Error al cargar reuniones.');
   return data.events;
 }
 
-function render() {
-  const typeFilter = document.getElementById('typeFilter').value;
-  const statusFilter = document.getElementById('statusFilter').value;
-  const search = document.getElementById('searchBox').value.toLowerCase();
+function renderSessionCard(e) {
+  const qaHtml = (e.questionsAndAnswers && e.questionsAndAnswers.length > 0)
+    ? `<div class="qa">${e.questionsAndAnswers.map(qa => `
+        <div class="qa-item">
+          <div class="q">${qa.question}</div>
+          <div class="a">${qa.answer || '—'}</div>
+        </div>
+      `).join('')}</div>`
+    : '';
 
-  let filtered = allEvents.filter(e => {
-    if (typeFilter && e.type !== typeFilter) return false;
-    if (statusFilter && e.status !== statusFilter) return false;
-    if (search && !(e.invitee.toLowerCase().includes(search) || e.email.toLowerCase().includes(search))) return false;
-    return true;
-  });
-
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '';
-  filtered.forEach(e => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${e.type}</td>
-      <td>${e.invitee}${e.email ? '<br><span style="color:#888;font-size:11px">'+e.email+'</span>' : ''}</td>
-      <td>${fmtDate(e.start)}</td>
-      <td>${fmtTime(e.start)}</td>
-      <td><span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Active' : 'Canceled'}</span></td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  const stats = document.getElementById('stats');
-  const total = allEvents.length;
-  const active = allEvents.filter(e => e.status === 'active').length;
-  const byType = {};
-  allEvents.forEach(e => { byType[e.type] = (byType[e.type]||0)+1; });
-  const topTypes = Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,3);
-
-  stats.innerHTML = `
-    <div class="stat"><div class="num">${total}</div><div class="label">Total meetings</div></div>
-    <div class="stat"><div class="num">${active}</div><div class="label">Active</div></div>
-    ${topTypes.map(([name,count]) => `<div class="stat"><div class="num">${count}</div><div class="label">${name}</div></div>`).join('')}
+  return `
+    <div class="session-card">
+      <div class="top">
+        <div class="type">${e.type}</div>
+        <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Activa' : 'Cancelada'}</span>
+      </div>
+      <div class="detail-grid">
+        <div class="k">Invitado</div><div class="v">${e.invitee}</div>
+        <div class="k">Correo</div><div class="v">${e.email || '—'}</div>
+        <div class="k">Entrevistador(a)</div><div class="v">${e.hosts && e.hosts.length > 0 ? e.hosts.join(', ') : '—'}</div>
+        <div class="k">Fecha</div><div class="v">${fmtDate(e.start)}</div>
+        <div class="k">Hora</div><div class="v">${fmtTime(e.start)} (${e.timezone || 'zona no especificada'})</div>
+        <div class="k">Duración</div><div class="v">${fmtDuration(e.start, e.end)}</div>
+        <div class="k">Ubicación</div><div class="v">${e.location || '—'}</div>
+        ${e.textReminderNumber ? `<div class="k">Teléfono</div><div class="v">${e.textReminderNumber}</div>` : ''}
+        ${e.rescheduled ? `<div class="k">Reagendada</div><div class="v">Sí</div>` : ''}
+        ${e.status !== 'active' && e.cancelReason ? `<div class="k">Motivo cancelación</div><div class="v">${e.cancelReason}</div>` : ''}
+        <div class="k">Agendada el</div><div class="v">${fmtDate(e.createdAt)}</div>
+      </div>
+      ${qaHtml}
+    </div>
   `;
 }
 
-function runEmailLookup() {
-  const query = document.getElementById('emailLookup').value.trim().toLowerCase();
-  const resultBox = document.getElementById('lookupResult');
-  resultBox.innerHTML = '';
-  if (!query) return;
+async function runSearch() {
+  const email = document.getElementById('emailInput').value.trim().toLowerCase();
+  const errBox = document.getElementById('errBox');
+  const loadingBox = document.getElementById('loadingBox');
+  const results = document.getElementById('results');
+  const searchBtn = document.getElementById('searchBtn');
 
-  const matches = allEvents.filter(e => e.email.toLowerCase() === query || e.email.toLowerCase().includes(query));
-  if (matches.length === 0) {
-    resultBox.innerHTML = '<div class="lookup-empty">No meetings found for that email.</div>';
+  errBox.classList.add('hidden');
+  results.innerHTML = '';
+
+  if (!email) {
+    errBox.textContent = 'Ingresa un correo para buscar.';
+    errBox.classList.remove('hidden');
     return;
   }
-  matches.sort((a,b) => new Date(b.start) - new Date(a.start));
-  resultBox.innerHTML = matches.map(e => `
-    <div class="lookup-hit">
-      <span class="name">${e.invitee}</span> — ${e.type}<br>
-      ${fmtDate(e.start)} · ${fmtTime(e.start)} · <span class="badge ${e.status === 'active' ? 'active' : 'canceled'}">${e.status === 'active' ? 'Active' : 'Canceled'}</span>
-    </div>
-  `).join('');
-}
 
-document.getElementById('loadBtn').addEventListener('click', async () => {
-  const minDate = document.getElementById('minDate').value;
-  const maxDate = document.getElementById('maxDate').value;
-  const errBox = document.getElementById('errBox');
-  const loadBtn = document.getElementById('loadBtn');
-  errBox.classList.add('hidden');
-  loadBtn.disabled = true;
-  loadBtn.textContent = 'Loading...';
+  searchBtn.disabled = true;
+  loadingBox.classList.remove('hidden');
 
   try {
-    allEvents = await fetchAll(minDate, maxDate);
-    const typeFilter = document.getElementById('typeFilter');
-    typeFilter.innerHTML = '<option value="">All event types</option>';
-    const types = [...new Set(allEvents.map(e => e.type))];
-    types.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t; opt.textContent = t;
-      typeFilter.appendChild(opt);
-    });
-    document.getElementById('results').classList.remove('hidden');
-    render();
+    if (!cachedEvents) {
+      cachedEvents = await loadAllEvents();
+    }
+    const matches = cachedEvents.filter(e => e.email.toLowerCase() === email || e.email.toLowerCase().includes(email));
+
+    if (matches.length === 0) {
+      results.innerHTML = '<div class="empty">No se encontraron reuniones para ese correo.</div>';
+    } else {
+      matches.sort((a, b) => new Date(b.start) - new Date(a.start));
+      results.innerHTML = `
+        <div class="summary">${matches.length} sesión${matches.length > 1 ? 'es' : ''} encontrada${matches.length > 1 ? 's' : ''} para <strong>${email}</strong></div>
+        ${matches.map(renderSessionCard).join('')}
+      `;
+    }
   } catch (e) {
     errBox.textContent = e.message;
     errBox.classList.remove('hidden');
   } finally {
-    loadBtn.disabled = false;
-    loadBtn.textContent = 'Load meetings';
+    searchBtn.disabled = false;
+    loadingBox.classList.add('hidden');
   }
-});
+}
 
-document.getElementById('lookupBtn').addEventListener('click', runEmailLookup);
-document.getElementById('emailLookup').addEventListener('keydown', (ev) => {
-  if (ev.key === 'Enter') runEmailLookup();
+document.getElementById('searchBtn').addEventListener('click', runSearch);
+document.getElementById('emailInput').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') runSearch();
 });
-document.getElementById('typeFilter').addEventListener('change', render);
-document.getElementById('statusFilter').addEventListener('change', render);
-document.getElementById('searchBox').addEventListener('input', render);
 </script>
 </body>
 </html>
