@@ -1,5 +1,5 @@
 // Shared in-memory cache + fetch logic, used by both the cron refresher and the read endpoint.
-let cache = { data: null, timestamp: 0 };
+let cache = { data: null, timestamp: 0, debug: null };
 
 async function mapWithConcurrency(items, limit, worker) {
   const results = new Array(items.length);
@@ -13,6 +13,23 @@ async function mapWithConcurrency(items, limit, worker) {
   const runners = Array.from({ length: Math.min(limit, items.length) }, run);
   await Promise.all(runners);
   return results;
+}
+
+async function fetchAllPages(url, token) {
+  let items = [];
+  let nextUrl = url;
+  let pageCount = 0;
+  while (nextUrl && pageCount < 30) {
+    const r = await fetch(nextUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) {
+      throw new Error('Error al consultar Calendly (' + r.status + ').');
+    }
+    const data = await r.json();
+    items = items.concat(data.collection);
+    nextUrl = data.pagination && data.pagination.next_page ? data.pagination.next_page : null;
+    pageCount++;
+  }
+  return items;
 }
 
 export async function refreshCache() {
@@ -30,25 +47,34 @@ export async function refreshCache() {
   const me = await meRes.json();
   const organizationUri = me.resource.current_organization;
 
-  const params = new URLSearchParams({
-    organization: organizationUri,
-    count: '100',
-    sort: 'start_time:desc'
-  });
+  // Fetch events across ALL active event types individually and merge.
+  // This is more reliable than a single paginated org-wide sweep, because it guarantees
+  // low-volume event types (like "First Interview") aren't crowded out by high-volume ones
+  // (like "Onboarding Session") when both share the same recency-sorted page window.
+  const eventTypesUrl = 'https://api.calendly.com/event_types?organization=' + encodeURIComponent(organizationUri) + '&count=100';
+  const eventTypes = await fetchAllPages(eventTypesUrl, token);
 
   let events = [];
-  let url = 'https://api.calendly.com/scheduled_events?' + params.toString();
-  let pageCount = 0;
-  while (url && pageCount < 20) {
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    if (!r.ok) {
-      throw new Error('Error al obtener eventos de Calendly.');
-    }
-    const data = await r.json();
-    events = events.concat(data.collection);
-    url = data.pagination && data.pagination.next_page ? data.pagination.next_page : null;
-    pageCount++;
+  const perTypeLog = [];
+  for (const et of eventTypes) {
+    const params = new URLSearchParams({
+      organization: organizationUri,
+      event_type: et.uri,
+      count: '100',
+      sort: 'start_time:desc'
+    });
+    const url = 'https://api.calendly.com/scheduled_events?' + params.toString();
+    const typeEvents = await fetchAllPages(url, token);
+    events = events.concat(typeEvents);
+    perTypeLog.push({ name: et.name, uri: et.uri, count: typeEvents.length });
   }
+
+  const debugInfo = {
+    organizationUri,
+    eventTypesFound: eventTypes.map(et => et.name),
+    totalEventsFetched: events.length,
+    perTypeLog
+  };
 
   const userCache = {};
   async function getUserName(userUri) {
@@ -118,7 +144,7 @@ export async function refreshCache() {
     };
   });
 
-  cache = { data: enriched, timestamp: Date.now() };
+  cache = { data: enriched, timestamp: Date.now(), debug: debugInfo };
   return enriched;
 }
 
