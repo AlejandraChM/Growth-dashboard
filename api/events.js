@@ -14,14 +14,11 @@ export default async function handler(req, res) {
     const me = await meRes.json();
     const userUri = me.resource.uri;
 
-    const { minDate, maxDate } = req.query;
     const params = new URLSearchParams({
       user: userUri,
       count: '100',
       sort: 'start_time:desc'
     });
-    if (minDate) params.set('min_start_time', new Date(minDate).toISOString());
-    if (maxDate) params.set('max_start_time', new Date(maxDate + 'T23:59:59').toISOString());
 
     let events = [];
     let url = 'https://api.calendly.com/scheduled_events?' + params.toString();
@@ -37,25 +34,72 @@ export default async function handler(req, res) {
       pageCount++;
     }
 
+    const userCache = {};
+    async function getUserName(userUri) {
+      if (!userUri) return '—';
+      if (userCache[userUri]) return userCache[userUri];
+      try {
+        const r = await fetch(userUri, { headers: { Authorization: 'Bearer ' + token } });
+        if (r.ok) {
+          const d = await r.json();
+          userCache[userUri] = d.resource.name || d.resource.email || userUri;
+          return userCache[userUri];
+        }
+      } catch (e) {}
+      return '—';
+    }
+
     const enriched = [];
     for (const ev of events) {
-      let inviteeName = '—', inviteeEmail = '';
+      let inviteeName = '—', inviteeEmail = '', inviteeTimezone = '', questionsAndAnswers = [], textReminderNumber = '', cancelReason = '', rescheduled = false;
       try {
         const invRes = await fetch(ev.uri + '/invitees', { headers: { Authorization: 'Bearer ' + token } });
         if (invRes.ok) {
           const invData = await invRes.json();
           if (invData.collection && invData.collection.length > 0) {
-            inviteeName = invData.collection[0].name || invData.collection[0].email;
-            inviteeEmail = invData.collection[0].email || '';
+            const inv = invData.collection[0];
+            inviteeName = inv.name || inv.email;
+            inviteeEmail = inv.email || '';
+            inviteeTimezone = inv.timezone || '';
+            questionsAndAnswers = inv.questions_and_answers || [];
+            textReminderNumber = inv.text_reminder_number || '';
+            cancelReason = inv.cancellation ? inv.cancellation.reason : '';
+            rescheduled = inv.rescheduled || false;
           }
         }
       } catch (e) {}
+
+      let locationInfo = '';
+      if (ev.location) {
+        if (typeof ev.location === 'string') locationInfo = ev.location;
+        else locationInfo = ev.location.location || ev.location.join_url || ev.location.type || '';
+      }
+
+      let hosts = [];
+      if (ev.event_memberships && ev.event_memberships.length > 0) {
+        for (const mem of ev.event_memberships) {
+          const name = await getUserName(mem.user);
+          hosts.push(name);
+        }
+      }
+
       enriched.push({
         type: ev.name || 'Sin nombre',
         start: ev.start_time,
+        end: ev.end_time,
         status: ev.status,
         invitee: inviteeName,
-        email: inviteeEmail
+        email: inviteeEmail,
+        timezone: inviteeTimezone,
+        location: locationInfo,
+        hosts,
+        questionsAndAnswers,
+        textReminderNumber,
+        cancelReason,
+        rescheduled,
+        eventUri: ev.uri,
+        createdAt: ev.created_at,
+        updatedAt: ev.updated_at
       });
     }
 
